@@ -8,13 +8,13 @@ CODE = open("code.bin", "rb").read()
 
 # 2. 设置内存起始地址
 CODE_ADDR = 0x10000000
-DATA_ADDR = 0x20000000
+DATA_ADDR = 0x80410000
 
 mu = Uc(UC_ARCH_RISCV, UC_MODE_RISCV32)
 mu.mem_map(CODE_ADDR, 0x1000)
 mu.mem_write(CODE_ADDR, CODE)
 
-mu.mem_map(DATA_ADDR, 0x4000)
+mu.mem_map(DATA_ADDR, 0x40000)
 
 # 3. 初始化 s0 寄存器让它指向 data 区
 # mu.reg_write(UC_RISCV_REG_S0, DATA_ADDR)

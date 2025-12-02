@@ -2,7 +2,14 @@ import re
 from enum import Enum
 
 enable_comment = 0
-var_start = 0x20000000
+var_start = 0x80410000
+# var_start = 0x20000000
+
+pixel_h = 200
+pixel_v = 150
+video_mem_start = var_start + 0x1000
+vm_ptr = (0x1000//4)
+stack_ptr = var_start + 0x000020000
 var_ptr = 0
 
 # 寄存器划分
@@ -14,9 +21,6 @@ r3 = "t2"
 r4 = "t3"
 r5 = "t4"
 sp = "sp"   # Stack pointer
-
-clock = "s9"   # 各个计时器完成一个周期后，将其中的一个比特设置为1
-key = "s10"  # 用来监听按键
 
 # 一些和掩码有关的常量
 clock_game_mask = 0x00000001
@@ -72,6 +76,9 @@ class ALU(Enum):
     XOR = 7
     MUL = 8
     DIV = 9
+
+def get_rand(rand_index):
+    pass
 
 def new_label(prefix="L"):
     global label_counter
@@ -288,6 +295,8 @@ class Lexer:
             ('WHILE',  r'while'),
             ('FOR',    r'for'),
             ('GOTO',   r'goto'),
+            ('LAND',   r'&&'),
+            ('LOR',    r'\|\|'),
             ('ID',     r'[a-zA-Z_][a-zA-Z0-9_]*'),
             ('NUM',    r'\d+'),
             ('PLUS',   r'\+'),
@@ -296,6 +305,7 @@ class Lexer:
             ('DIV',    r'/'),
             ('EQ',     r'=='),
             ('NE',     r'!='),
+            ('LNOT',   r'!'),
             ('LE',     r'<='),
             ('GE',     r'>='),
             ('LT',     r'<'),
@@ -310,6 +320,8 @@ class Lexer:
             ('SEMI',   r';'),
             ('COMMA',  r','),
             ('AMP',    r'&'),
+            ('BOR',    r'\|'),
+            ('BNOT',   r'~'),
             ('COLON',  r':'),
             ('SKIP',   r'[ \t\n]+'),
             ('MISMATCH', r'.'),
@@ -321,7 +333,8 @@ class Lexer:
             if kind == 'SKIP':
                 continue
             elif kind == 'MISMATCH':
-                raise RuntimeError(f'{value!r} unexpected')
+                print(mo)
+                raise RuntimeError(f'{value} unexpected')
             elif kind == 'NUM':
                 value = int(value)
             self.tokens.append(Token(kind, value))
@@ -338,6 +351,7 @@ class Parser:
             self.pos += 1
             self.current_token = self.tokens[self.pos]
         else:
+            print(self.current_token)
             raise Exception(f'Expected {token_type}, got {self.current_token.type}')
 
     def parse(self):
@@ -622,41 +636,96 @@ class Parser:
 
     # Expressions
     def expr(self):
-        self.simple_expr()
-        if self.current_token.type in ('EQ', 'NE', 'LT', 'GT', 'LE', 'GE'):
-            op = self.current_token.type
-            self.eat(op)
-            # Push r1
+        self.logic_or()
+
+    def logic_or(self):
+        self.logic_and()
+        while self.current_token.type == 'LOR':
+            self.eat('LOR')
             emit_instr.append(f'\taddi sp, sp, -4')
             emit_instr.append(f'\tsw {r1}, 0(sp)')
-            
-            self.simple_expr() # Result in r1 (right operand)
-            
-            # Pop left operand to r2
+            self.logic_and()
             emit_instr.append(f'\tlw {r2}, 0(sp)')
             emit_instr.append(f'\taddi sp, sp, 4')
-            
-            # Compare r2 and r1, result in r1 (1 or 0)
-            # RISC-V set instructions: slt, etc.
-            if op == 'LT':
-                emit_instr.append(f'\tslt {r1}, {r2}, {r1}')
-            elif op == 'GT':
-                emit_instr.append(f'\tslt {r1}, {r1}, {r2}')
-            elif op == 'LE':
-                # r2 <= r1  <=>  !(r1 < r2)
-                emit_instr.append(f'\tslt {r1}, {r1}, {r2}')
-                emit_instr.append(f'\txori {r1}, {r1}, 1')
-            elif op == 'GE':
-                # r2 >= r1 <=> !(r2 < r1)
-                emit_instr.append(f'\tslt {r1}, {r2}, {r1}')
-                emit_instr.append(f'\txori {r1}, {r1}, 1')
-            elif op == 'EQ':
-                # r2 == r1
+            # Eager logical OR: (r2 != 0) | (r1 != 0)
+            emit_instr.append(f'\tsnez {r2}, {r2}')
+            emit_instr.append(f'\tsnez {r1}, {r1}')
+            alu(r1, r2, r1, ALU.OR)
+            emit_instr.append(f'\tsnez {r1}, {r1}') # Normalize to 0/1
+
+    def logic_and(self):
+        self.bitwise_or()
+        while self.current_token.type == 'LAND':
+            self.eat('LAND')
+            emit_instr.append(f'\taddi sp, sp, -4')
+            emit_instr.append(f'\tsw {r1}, 0(sp)')
+            self.bitwise_or()
+            emit_instr.append(f'\tlw {r2}, 0(sp)')
+            emit_instr.append(f'\taddi sp, sp, 4')
+            # Eager logical AND: (r2 != 0) & (r1 != 0)
+            emit_instr.append(f'\tsnez {r2}, {r2}')
+            emit_instr.append(f'\tsnez {r1}, {r1}')
+            alu(r1, r2, r1, ALU.AND)
+
+    def bitwise_or(self):
+        self.bitwise_and()
+        while self.current_token.type == 'BOR':
+            self.eat('BOR')
+            emit_instr.append(f'\taddi sp, sp, -4')
+            emit_instr.append(f'\tsw {r1}, 0(sp)')
+            self.bitwise_and()
+            emit_instr.append(f'\tlw {r2}, 0(sp)')
+            emit_instr.append(f'\taddi sp, sp, 4')
+            alu(r1, r2, r1, ALU.OR)
+
+    def bitwise_and(self):
+        self.equality()
+        while self.current_token.type == 'AMP':
+            self.eat('AMP')
+            emit_instr.append(f'\taddi sp, sp, -4')
+            emit_instr.append(f'\tsw {r1}, 0(sp)')
+            self.equality()
+            emit_instr.append(f'\tlw {r2}, 0(sp)')
+            emit_instr.append(f'\taddi sp, sp, 4')
+            alu(r1, r2, r1, ALU.AND)
+
+    def equality(self):
+        self.relational()
+        while self.current_token.type in ('EQ', 'NE'):
+            op = self.current_token.type
+            self.eat(op)
+            emit_instr.append(f'\taddi sp, sp, -4')
+            emit_instr.append(f'\tsw {r1}, 0(sp)')
+            self.relational()
+            emit_instr.append(f'\tlw {r2}, 0(sp)')
+            emit_instr.append(f'\taddi sp, sp, 4')
+            if op == 'EQ':
                 emit_instr.append(f'\tsub {r1}, {r2}, {r1}')
                 emit_instr.append(f'\tseqz {r1}, {r1}')
             elif op == 'NE':
                 emit_instr.append(f'\tsub {r1}, {r2}, {r1}')
                 emit_instr.append(f'\tsnez {r1}, {r1}')
+
+    def relational(self):
+        self.simple_expr()
+        while self.current_token.type in ('LT', 'GT', 'LE', 'GE'):
+            op = self.current_token.type
+            self.eat(op)
+            emit_instr.append(f'\taddi sp, sp, -4')
+            emit_instr.append(f'\tsw {r1}, 0(sp)')
+            self.simple_expr()
+            emit_instr.append(f'\tlw {r2}, 0(sp)')
+            emit_instr.append(f'\taddi sp, sp, 4')
+            if op == 'LT':
+                emit_instr.append(f'\tslt {r1}, {r2}, {r1}')
+            elif op == 'GT':
+                emit_instr.append(f'\tslt {r1}, {r1}, {r2}')
+            elif op == 'LE':
+                emit_instr.append(f'\tslt {r1}, {r1}, {r2}')
+                emit_instr.append(f'\txori {r1}, {r1}, 1')
+            elif op == 'GE':
+                emit_instr.append(f'\tslt {r1}, {r2}, {r1}')
+                emit_instr.append(f'\txori {r1}, {r1}, 1')
 
     def simple_expr(self):
         self.term()
@@ -674,7 +743,7 @@ class Parser:
                 alu(r1, r2, r1, ALU.SUB)
 
     def term(self):
-        self.factor()
+        self.unary()
         while self.current_token.type in ('MUL', 'DIV'):
             op = self.current_token.type
             self.eat(op)
@@ -689,13 +758,39 @@ class Parser:
             else:
                 emit_instr.append(f'\taddi sp, sp, -4')
                 emit_instr.append(f'\tsw {r1}, 0(sp)')
-                self.factor()
+                self.unary()
                 emit_instr.append(f'\tlw {r2}, 0(sp)')
                 emit_instr.append(f'\taddi sp, sp, 4')
                 if op == 'MUL':
                     alu(r1, r2, r1, ALU.MUL)
                 else:
                     alu(r1, r2, r1, ALU.DIV)
+
+    def unary(self):
+        if self.current_token.type == 'LNOT':
+            self.eat('LNOT')
+            self.unary()
+            emit_instr.append(f'\tseqz {r1}, {r1}')
+        elif self.current_token.type == 'BNOT':
+            self.eat('BNOT')
+            self.unary()
+            emit_instr.append(f'\txori {r1}, {r1}, -1')
+        elif self.current_token.type == 'AMP':
+            self.eat('AMP')
+            name = self.current_token.value
+            self.eat('ID')
+            idx = get_ref_var(name)
+            write_reg(r1, idx)
+        elif self.current_token.type == 'MUL':
+            self.eat('MUL')
+            name = self.current_token.value
+            self.eat('ID')
+            read_var(name, r2)
+            emit_instr.append(f'\tslli {r2}, {r2}, 2')
+            emit_instr.append(f'\tadd {r2}, {r2}, {rv}')
+            emit_instr.append(f'\tlw {r1}, 0({r2})')
+        else:
+            self.factor()
 
     def factor(self):
         if self.current_token.type == 'NUM':
@@ -757,28 +852,6 @@ class Parser:
             self.eat('LPAREN')
             self.expr()
             self.eat('RPAREN')
-        elif self.current_token.type == 'AMP':
-            self.eat('AMP')
-            name = self.current_token.value
-            self.eat('ID')
-            # &x -> return index of x?
-            # If p = &x, and *p accesses x.
-            # *p implementation:
-            # read p -> r2 (index)
-            # addr = r2*4 + rv
-            # access addr
-            # So &x should return the INDEX of x.
-            idx = get_ref_var(name)
-            write_reg(r1, idx)
-        elif self.current_token.type == 'MUL':
-            self.eat('MUL')
-            name = self.current_token.value
-            self.eat('ID')
-            # *p -> read p, treat as index, load value
-            read_var(name, r2) # r2 = index
-            emit_instr.append(f'\tslli {r2}, {r2}, 2')
-            emit_instr.append(f'\tadd {r2}, {r2}, {rv}')
-            emit_instr.append(f'\tlw {r1}, 0({r2})')
         else:
             raise Exception(f'Unexpected token in factor: {self.current_token}')
 
@@ -790,7 +863,7 @@ def init():
     # But usually SP is set by crt0.
     # I'll assume SP is valid or set it to end of SRAM?
     # Let's set it to 0x40000000 for now?
-    emit_instr.append(f'\tli {sp}, 0x20002000')
+    emit_instr.append(f'\tli {sp}, {stack_ptr}')
     
     
 
@@ -903,23 +976,75 @@ def test():
     # out:
     # j = 7;
     # """
+    init_code = """
+        var x = 32;
+        var y = 32;
+    """
+    # init_code = ''
 
-    code = """
-        var x;
-        x = 3*8;
-        x = 4*15;
-        var y = x - 8;
-        var i;
-        var z[10];
-        var sum = 0;
-        for(i=1; i<=100; i=i+1){
-            sum = sum + i;
+    loop_code = """
+        var a; 
+        var b; 
+        var c;
+        var d;
+        a = KEY_PUSH & 1;
+        b = KEY_PUSH & 2;
+        c = KEY_PUSH & 4;
+        d = KEY_PUSH & 8;
+
+        if(a) {
+            x = x - 1;       
         }
-        i = 10;
-        while(i != 3) {
-            i = i - 1;
+        if(b) {
+            x = x + 1;       
+        }
+        if(c) {
+            y = y - 1;       
+        }
+        if(d) {
+            y = y + 1;       
+        }
+
+        var i;
+        var p;
+        var vm_addr;
+        for(i=0; i< 150*200; i=i+1){
+             p = VM_START + i;
+             
+             if i < 150*10 {
+                *p = 572662306;   
+             }
+             else{
+                *p = 2290649224;
+             }
         }
     """
+    #
+    # loop_code = ''
+
+    code = f"""
+        var FINISH_TURN;
+        var KEY_PUSH;
+        var RAND_VAL;
+        var VM_START = {vm_ptr};
+    """ + init_code +""" 
+        while(1) {
+    """ + loop_code +"""
+            KEY_PUSH = 0;
+            while(FINISH_TURN == 0){
+                x = x;
+            }
+            FINISH_TURN = 0;
+        }
+    """
+
+    # print(code)
+
+    # code = """ var x;
+    #         x = 4*15;
+    #         var y = &x;
+    # """
+
     
     init()
     
