@@ -1,3 +1,3 @@
-python RGparser.py -f flush.rg > flush.s
+python RGparser.py -f flush.rg -o flush.s
 make
 python run.py

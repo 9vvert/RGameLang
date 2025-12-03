@@ -1041,12 +1041,13 @@ def compile(init_code, loop_code):
     # branch(clock, zero, game_loop_wait_L[:-1] , CMP.EQ)
     # branch(zero, zero, game_loop_start_L[:-1],  CMP.JMP)
 
-    for instr in emit_instr:
-        print(instr)
+    # for instr in emit_instr:
+    #     print(instr)
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='-f <source file>')
-    parser.add_argument('-f', '--file', type=str, help='path to file')
+    parser = argparse.ArgumentParser(description='-f <source file> -o <dst file>')
+    parser.add_argument('-f', '--file', type=str, help='path to src file')
+    parser.add_argument('-o', '--object', type=str, help='path to obj file')
     args = parser.parse_args()
 
     init_code = ''
@@ -1094,3 +1095,13 @@ if __name__ == '__main__':
 
 
     compile(init_code, loop_code)
+    
+    output_asm = ''
+    for instr in emit_instr:
+        output_asm += (instr + '\n')
+        
+    with open(args.object, 'w') as f:
+        f.write(output_asm)
+
+
+    
