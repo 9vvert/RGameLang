@@ -8,7 +8,7 @@ CODE = open("flush.bin", "rb").read()
 
 # 2. 设置内存起始地址
 CODE_ADDR = 0x10000000
-DATA_ADDR = 0x80410000
+DATA_ADDR = 0x80010000
 
 mu = Uc(UC_ARCH_RISCV, UC_MODE_RISCV32)
 mu.mem_map(CODE_ADDR, 0x1000)

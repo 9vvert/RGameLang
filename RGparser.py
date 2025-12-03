@@ -3,14 +3,14 @@ from enum import Enum
 import argparse
 
 enable_comment = 0
-var_start = 0x80410000
+var_start = 0x80010000
 # var_start = 0x20000000
 
 pixel_h = 200
 pixel_v = 150
 video_mem_start = var_start + 0x1000
 vm_ptr = (0x1000//4)
-stack_ptr = var_start + 0x000020000
+stack_ptr = var_start + 0x00020000
 var_ptr = 0
 
 # 寄存器划分
