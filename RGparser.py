@@ -334,7 +334,7 @@ class Lexer:
             if kind == 'SKIP':
                 continue
             elif kind == 'MISMATCH':
-                print(mo)
+                # print(mo)
                 raise RuntimeError(f'{value} unexpected')
             elif kind == 'NUM':
                 value = int(value)
@@ -352,7 +352,9 @@ class Parser:
             self.pos += 1
             self.current_token = self.tokens[self.pos]
         else:
-            print(self.current_token)
+            # print(self.current_token)
+            # print(self.current_token.type)
+            # print(token_type)
             raise Exception(f'Expected {token_type}, got {self.current_token.type}')
 
     def parse(self):
@@ -381,6 +383,7 @@ class Parser:
         elif self.current_token.type == 'MUL': # *p = ...
             self.assignment()
         else:
+            # print(f'{self.current_token}')
             raise Exception(f'Unexpected token {self.current_token}')
 
     def var_decl(self):
@@ -397,6 +400,7 @@ class Parser:
             else:
                 def_var(name)
                 if self.current_token.type == 'ASSIGN':
+                    # print(self.current_token)
                     self.eat('ASSIGN')
                     self.expr()
                     # Result is in r1
@@ -876,6 +880,8 @@ def USE_TABLE(size):
 
 # 在特定位置画正方形
 def draw_recv(hpos, vpos, hlen, vlen, color):
+    print('**********')
+    print(hpos, hlen, vpos, vlen)
     # Handle potential string concatenation for code generation
     if isinstance(vpos, str) or isinstance(vlen, str):
         v_limit = f"{vpos} + {vlen}"
@@ -900,6 +906,11 @@ def draw_recv(hpos, vpos, hlen, vlen, color):
 
 def DRAW_CELL(x, y, color):
     # x: row (vertical), y: col (horizontal)
+    # print('---')
+    # print(x, y, color)
+    # print('#####')
+    # print(draw_recv(f"({y})*{table_cell_size}", f"({x})*{table_cell_size}", table_cell_size, table_cell_size, int(color,16)))
+    # print('#####')
     return draw_recv(f"({y})*{table_cell_size}", f"({x})*{table_cell_size}", table_cell_size, table_cell_size, int(color,16))
     
     
@@ -994,6 +1005,11 @@ def compile(init_code, loop_code):
         var draw_x, draw_y;
         var vm_addr, vm_index;
         var nan;
+        var NULL = 4294967295;
+        var KEY1 = KEY_PUSH & 1;
+        var KEY2 = KEY_PUSH & 2;
+        var KEY3 = KEY_PUSH & 4;
+        var KEY4 = KEY_PUSH & 8;
     """ + init_code +""" 
         while(1) {
     """ + loop_code +"""
@@ -1038,7 +1054,7 @@ if __name__ == '__main__':
     in_init, in_loop = False, False
 
     USE_TABLE_MACRO =  r'USE_TABLE\(\s*([0-9]+)\s*\)'
-    DRAW_CELL_MACRO =  r'DRAW_CELL\(\s*([0-9a-zA-Z]+)\s*,\s*([0-9a-zA-Z]+)\s*,\s*([0-9a-zA-Z]+)\s*\)'
+    DRAW_CELL_MACRO =  r'DRAW_CELL\(\s*([0-9a-zA-Z_]+)\s*,\s*([0-9a-zA-Z_]+)\s*,\s*([0-9a-zA-Z]+)\s*\)'
     with open(args.file) as f:
         lines = f.readlines()
 
@@ -1047,8 +1063,11 @@ if __name__ == '__main__':
 
         for line in lines:
             try:
-                comment_start = line.index('//')
-                line = line[:comment_start - 1]
+                if line[0] == '/':
+                    line = ''
+                else:
+                    comment_start = line.index('//')
+                    line = line[:comment_start - 1]
             except:
                 pass
 

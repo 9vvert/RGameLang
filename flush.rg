@@ -5,13 +5,14 @@ Init:
 	var i, j;
 
 	// 初始化画面
-	for(i=0; i<20; i=i+1){
-		for(j=0; j<15; j=j+1){
+	for(i=0; i<15; i=i+1){
+		for(j=0; j<20; j=j+1){
 			DRAW_CELL(i, j, 0x55555555);
 		}
 	}
 
 Update:
+	DRAW_CELL(x, y, 0x99999999);
 	if x < 20 {
 		x = x + 1;
 	}
@@ -25,7 +26,6 @@ Update:
 		}
 	}
 
-	DRAW_CELL(x, y, 0x99999999);
 	
 	
 	
