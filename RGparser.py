@@ -1,5 +1,6 @@
 import re
 from enum import Enum
+import argparse
 
 enable_comment = 0
 var_start = 0x80410000
@@ -855,7 +856,6 @@ class Parser:
         else:
             raise Exception(f'Unexpected token in factor: {self.current_token}')
 
-# ==============================================
 def init():
     emit_instr.append(f'\tli {rv}, {hex(var_start)}')
     # Initialize Stack Pointer (arbitrary high address or just assume it's set?)
@@ -863,81 +863,49 @@ def init():
     # But usually SP is set by crt0.
     # I'll assume SP is valid or set it to end of SRAM?
     # Let's set it to 0x40000000 for now?
-    emit_instr.append(f'\tli {sp}, {stack_ptr}')
+    emit_instr.append(f'\tli {sp}, {hex(stack_ptr)}')
+
+
+# 宏定义
+table_cell_size = 1
+
+def USE_TABLE(size):
+    global table_cell_size
+    table_cell_size = size
+    return ""
+
+# 在特定位置画正方形
+def draw_recv(hpos, vpos, hlen, vlen, color):
+    # Handle potential string concatenation for code generation
+    if isinstance(vpos, str) or isinstance(vlen, str):
+        v_limit = f"{vpos} + {vlen}"
+    else:
+        v_limit = vpos + vlen
+        
+    if isinstance(hpos, str) or isinstance(hlen, str):
+        h_limit = f"{hpos} + {hlen}"
+    else:
+        h_limit = hpos + hlen
+
+    return f"""
+        for(draw_x = { vpos }; draw_x < { v_limit }; draw_x =draw_x + 1){{
+            for(draw_y = { hpos }; draw_y < { h_limit }; draw_y =draw_y + 1){{
+                vm_index = (draw_x) * 200 + draw_y;
+                vm_addr = VM_START + vm_index;
+                *vm_addr = {color};
+            }}
+        }}
+
+    """
+
+def DRAW_CELL(x, y, color):
+    # x: row (vertical), y: col (horizontal)
+    return draw_recv(f"({y})*{table_cell_size}", f"({x})*{table_cell_size}", table_cell_size, table_cell_size, int(color,16))
     
     
 
-def true_init():
-    # 设置var ptr
-    emit_instr.append(f'\tli {rv}, {hex(var_start)}')
-    # Initialize Stack Pointer (arbitrary high address or just assume it's set?)
-    # Let's set it to something safe if not set.
-    # But usually SP is set by crt0.
-    # I'll assume SP is valid or set it to end of SRAM?
-    # Let's set it to 0x40000000 for now?
-    emit_instr.append(f'\tli {sp}, 0x40000000')
-    
-    # 初始化一些寄存器
-    write_reg(clock, 0)
 
-    # ========== 定义系统变量==========
-    # 渲染
-    def_var(res_x_var)
-    def_var(res_y_var)
-    # 计时器
-    def_var(game_clock_counter_var)
-    def_var(game_clock_finish_var)
-    def_var(listener_clock_counter_var)
-    def_var(listener_clock_finish_var)
-    # 按键
-    def_var(key_bits_var)
-    def_var(key_up_var)
-    def_var(key_down_var)
-    def_var(key_left_var)
-    def_var(key_right_var)
-
-    # =========== 变量初始化 =============
-    # 设置game clk 和相关的寄存器
-    write_var(game_clock_counter_var, 25000000) # 默认： 1s
-    write_var(listener_clock_counter_var, 20000000) # 默认： 0.8s
-    write_var(game_clock_finish_var, 0)
-    write_var(listener_clock_finish_var, 0)
-    # 设置分辨率,默认 40*30网格
-    write_var(res_x_var, 40) 
-    write_var(res_y_var, 30) 
-
-    # ============ 控制逻辑 ===============
-    # 产生game clock的label
-    emit_label(game_loop_start_L[:-1]) # Remove colon for emit_label
-    
-    # 在key listener循环的外面初始化key
-    write_reg(key_bits_var, 0)
-    
-    # 监听键盘事件
-    emit_label(key_listener_start_L[:-1])
-
-    # 只要下列条件满足其一：读取到按键/时间终止，就结束这一轮的listen
-    read_var(key_bits_var, key) 
-    read_var(listener_clock_finish_var, clock)
-    branch(key, zero, key_listener_end_L[:-1], CMP.NE)
-    branch(clock, zero, key_listener_end_L[:-1], CMP.NE)
-    branch(zero, zero, key_listener_start_L[:-1], CMP.JMP)    
-    emit_label(key_listener_end_L[:-1])
-
-    # 记录本周期记录的按键
-    alui(r1, key, 0x1, ALU.AND)
-    write_var_with_reg(key_left_var, r1)
-    alui(r1, key, 0x2, ALU.AND)
-    alui(r1, r1, 1, ALU.SHR)
-    write_var_with_reg(key_down_var, r1)
-    alui(r1, key, 0x4, ALU.AND)
-    alui(r1, r1, 2, ALU.SHR)
-    write_var_with_reg(key_up_var, r1)
-    alui(r1, key, 0x8, ALU.AND)
-    alui(r1, r1, 3, ALU.SHR)
-    write_var_with_reg(key_right_var, r1)
-
-def test():
+def compile(init_code, loop_code):
     # code = """
     # var a,b;
     # var c;
@@ -976,49 +944,45 @@ def test():
     # out:
     # j = 7;
     # """
-    init_code = """
-        var x = 32;
-        var y = 32;
-    """
+    # init_code = f"""
+    #     var x = 32;
+    #     var y = 32;
+    #     {USE_TABLE(10)}
+    # """
     # init_code = ''
 
-    loop_code = """
-        var a; 
-        var b; 
-        var c;
-        var d;
-        a = KEY_PUSH & 1;
-        b = KEY_PUSH & 2;
-        c = KEY_PUSH & 4;
-        d = KEY_PUSH & 8;
+    # loop_code = """
+    #     var a; 
+    #     var b; 
+    #     var c;
+    #     var d;
+    #     a = KEY_PUSH & 1;
+    #     b = KEY_PUSH & 2;
+    #     c = KEY_PUSH & 4;
+    #     d = KEY_PUSH & 8;
+    #
+    #     if(a) {
+    #         x = x - 1;       
+    #     }
+    #     if(b) {
+    #         x = x + 1;       
+    #     }
+    #     if(c) {
+    #         y = y - 1;       
+    #     }
+    #     if(d) {
+    #         y = y + 1;       
+    #     }
+    #
+    #     var i;
+    #     var p;
+    #     var vm_addr;
+    #     
+    # """
 
-        if(a) {
-            x = x - 1;       
-        }
-        if(b) {
-            x = x + 1;       
-        }
-        if(c) {
-            y = y - 1;       
-        }
-        if(d) {
-            y = y + 1;       
-        }
-
-        var i;
-        var p;
-        var vm_addr;
-        for(i=0; i< 150*200; i=i+1){
-             p = VM_START + i;
-             
-             if i < 150*10 {
-                *p = 572662306;   
-             }
-             else{
-                *p = 2290649224;
-             }
-        }
-    """
+    # loop_code = f"""
+    #     {DRAW_CELL(15, 20, 0x55555555)}
+    # """
     #
     # loop_code = ''
 
@@ -1027,12 +991,15 @@ def test():
         var KEY_PUSH;
         var RAND_VAL;
         var VM_START = {vm_ptr};
+        var draw_x, draw_y;
+        var vm_addr, vm_index;
+        var nan;
     """ + init_code +""" 
         while(1) {
     """ + loop_code +"""
             KEY_PUSH = 0;
             while(FINISH_TURN == 0){
-                x = x;
+                nan = nan;
             }
             FINISH_TURN = 0;
         }
@@ -1062,4 +1029,49 @@ def test():
         print(instr)
 
 if __name__ == '__main__':
-    test()
+    parser = argparse.ArgumentParser(description='-f <source file>')
+    parser.add_argument('-f', '--file', type=str, help='path to file')
+    args = parser.parse_args()
+
+    init_code = ''
+    loop_code = ''
+    in_init, in_loop = False, False
+
+    USE_TABLE_MACRO =  r'USE_TABLE\(\s*([0-9]+)\s*\)'
+    DRAW_CELL_MACRO =  r'DRAW_CELL\(\s*([0-9a-zA-Z]+)\s*,\s*([0-9a-zA-Z]+)\s*,\s*([0-9a-zA-Z]+)\s*\)'
+    with open(args.file) as f:
+        lines = f.readlines()
+
+        
+        tmp_code = ''
+
+        for line in lines:
+            try:
+                comment_start = line.index('//')
+                line = line[:comment_start - 1]
+            except:
+                pass
+
+            if 'Init:' in line:
+                in_init = True
+            elif 'Update:' in line:
+                in_loop = True
+            else:
+                
+                use_m =  re.search(USE_TABLE_MACRO, line) 
+                use_d =  re.search(DRAW_CELL_MACRO, line) 
+                if use_m:
+                    tmp_code = USE_TABLE(use_m.group(1))
+                        
+                elif use_d:
+                    tmp_code = DRAW_CELL(use_d.group(1), use_d.group(2), use_d.group(3))
+                else:
+                    tmp_code = line
+                
+                if in_loop:
+                    loop_code += tmp_code
+                elif in_init:
+                    init_code += tmp_code
+
+
+    compile(init_code, loop_code)

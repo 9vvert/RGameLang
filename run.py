@@ -4,7 +4,7 @@ from unicorn.riscv_const import *
 
 
 # 1. 加载机器码
-CODE = open("code.bin", "rb").read()
+CODE = open("flush.bin", "rb").read()
 
 # 2. 设置内存起始地址
 CODE_ADDR = 0x10000000
