@@ -1,8 +1,4 @@
-BUILD_DIR = .
-ARM_SOURCES = $(wildcard *.s)
-TARGETS = $(addprefix $(BUILD_DIR)/,$(notdir $(ARM_SOURCES:.s=.bin)))
-all: $(TARGETS)
-%.elf: %.s
-	riscv64-unknown-elf-gcc $< -march=rv32i -mabi=ilp32 -static -fno-pic -fno-builtin -nostdlib  -nostdinc -g -o $@ -Wl,-Ttext,0x0
-%.bin: %.elf
-	riscv64-unknown-elf-objcopy -j .text -O binary -S $< $@
+
+
+util.o: util.S common.h serial.h
+	riscv32-unknown-elf-gcc -c util.S -o util.o -march=rv32i -mabi=ilp32
