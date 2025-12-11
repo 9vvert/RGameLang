@@ -10,3 +10,4 @@ riscv64-unknown-elf-gcc -nostdlib -Wl,-T,link.ld -march=rv32i -mabi=ilp32 -o gam
 # 生成二进制文件
 riscv64-unknown-elf-objcopy -O binary --only-section=.text game.elf game.bin
 
+riscv64-unknown-elf-objdump -D game.elf > game.asm
