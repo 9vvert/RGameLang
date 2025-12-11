@@ -7,7 +7,7 @@
 
 #define H_MAX 200
 #define V_MAX 150
-#define CELL_LEN 4
+#define CELL_LEN 10
 
 // 网格大小（不再计算，写成常量）
 #define MAP_H 15 // vertical cells
