@@ -143,6 +143,7 @@ main:
 	sw	a5,-32(s0)
 	li	a5,1
 	sw	a5,-36(s0)
+	call	clear_screen
 	li	a5,7
 	sw	a5,-108(s0)
 	li	a5,5
@@ -199,7 +200,7 @@ main:
 	lw	a5,0(a5)
 	sw	a5,-116(s0)
 	lw	a5,-116(s0)
-	andi	a5,a5,1
+	andi	a5,a5,2
 	beq	a5,zero,.L15
 	lw	a4,-24(s0)
 	li	a5,1
@@ -208,7 +209,7 @@ main:
 	j	.L16
 .L15:
 	lw	a5,-116(s0)
-	andi	a5,a5,2
+	andi	a5,a5,4
 	beq	a5,zero,.L17
 	lw	a5,-24(s0)
 	beq	a5,zero,.L16
@@ -217,7 +218,7 @@ main:
 	j	.L16
 .L17:
 	lw	a5,-116(s0)
-	andi	a5,a5,4
+	andi	a5,a5,8
 	beq	a5,zero,.L18
 	lw	a4,-24(s0)
 	li	a5,3
@@ -227,7 +228,7 @@ main:
 	j	.L16
 .L18:
 	lw	a5,-116(s0)
-	andi	a5,a5,8
+	andi	a5,a5,1
 	beq	a5,zero,.L16
 	lw	a4,-24(s0)
 	li	a5,2

@@ -75,7 +75,7 @@ int main() {
   int has_food = 1;
 
   // 初始化屏幕
-  // clear_screen();
+  clear_screen();
 
   // 初始化蛇：长度 3，水平向右
   // 把蛇大致放在中间
@@ -121,16 +121,16 @@ int main() {
     key = *key_reg;
 
     // 注意：这里假定不能直接反向（避免立刻撞到自己）
-    if (key & 0x1) { // 上
+    if (key & 0x2) { // 上
       if (dir != DIR_DOWN)
         dir = DIR_UP;
-    } else if (key & 0x2) { // 下
+    } else if (key & 0x4) { // 下
       if (dir != DIR_UP)
         dir = DIR_DOWN;
-    } else if (key & 0x4) { // 左
+    } else if (key & 0x8) { // 左
       if (dir != DIR_RIGHT)
         dir = DIR_LEFT;
-    } else if (key & 0x8) { // 右
+    } else if (key & 0x1) { // 右
       if (dir != DIR_LEFT)
         dir = DIR_RIGHT;
     }
