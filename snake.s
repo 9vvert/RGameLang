@@ -143,7 +143,6 @@ main:
 	sw	a5,-32(s0)
 	li	a5,1
 	sw	a5,-36(s0)
-	call	clear_screen
 	li	a5,7
 	sw	a5,-108(s0)
 	li	a5,5

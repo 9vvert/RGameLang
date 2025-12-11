@@ -1,3 +1,4 @@
+riscv64-unknown-elf-gcc -S snake.c -march=rv32i -mabi=ilp32 -static -fno-pic -fno-builtin -nostdlib -nostdinc -o snake.s 
 riscv64-unknown-elf-gcc -nostdlib -march=rv32i -mabi=ilp32 -c start.s -o start.o
 riscv64-unknown-elf-gcc -nostdlib -march=rv32i -mabi=ilp32 -c snake.s -o snake.o
 

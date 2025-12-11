@@ -72,7 +72,7 @@ int main(){
     int has_food = 1;
 
     // 初始化屏幕
-    clear_screen();
+    // clear_screen();
 
     // 初始化蛇：长度 3，水平向右
     // 把蛇大致放在中间
