@@ -15,17 +15,11 @@ draw_cell:
 	sw	a0,-52(s0)
 	sw	a1,-56(s0)
 	sw	a2,-60(s0)
-	lw	a4,-52(s0)
-	mv	a5,a4
+	lw	a5,-52(s0)
 	slli	a5,a5,2
-	add	a5,a5,a4
-	slli	a5,a5,1
 	sw	a5,-28(s0)
-	lw	a4,-56(s0)
-	mv	a5,a4
+	lw	a5,-56(s0)
 	slli	a5,a5,2
-	add	a5,a5,a4
-	slli	a5,a5,1
 	sw	a5,-32(s0)
 	lw	a5,-28(s0)
 	sw	a5,-20(s0)
@@ -58,7 +52,7 @@ draw_cell:
 	sw	a5,-24(s0)
 .L3:
 	lw	a5,-32(s0)
-	addi	a5,a5,9
+	addi	a5,a5,3
 	lw	a4,-24(s0)
 	ble	a4,a5,.L4
 	lw	a5,-20(s0)
@@ -66,7 +60,7 @@ draw_cell:
 	sw	a5,-20(s0)
 .L2:
 	lw	a5,-28(s0)
-	addi	a5,a5,9
+	addi	a5,a5,3
 	lw	a4,-20(s0)
 	ble	a4,a5,.L5
 	nop
